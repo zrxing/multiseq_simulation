@@ -49,6 +49,7 @@ res=nbinomTest(sim.y,"A","B")
 
 
 ```{r}
+#try running poisson glm for each region separately
 pval.sep = 0
 for(i in 1:(2*N)){
   fit = glm(data.sim[i, ] ~ g, family = "poisson")

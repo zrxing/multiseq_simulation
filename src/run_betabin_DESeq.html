@@ -205,7 +205,8 @@ size.factor=read.depth.null/(sum(unique(read.depth.null))/length(unique(read.dep
 sim.y@phenoData@data$sizeFactor=size.factor
 sim.y=estimateDispersions(sim.y,fitType=&quot;local&quot;)
 res=nbinomTest(sim.y,&quot;A&quot;,&quot;B&quot;)</code></pre>
-<pre class="r"><code>pval.sep = 0
+<pre class="r"><code>#try running poisson glm for each region separately
+pval.sep = 0
 for(i in 1:(2*N)){
   fit = glm(data.sim[i, ] ~ g, family = &quot;poisson&quot;)
   pval.sep[i] = summary(fit)$coef[2, 4]
