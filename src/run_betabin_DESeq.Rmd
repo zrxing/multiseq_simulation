@@ -1,0 +1,65 @@
+---
+title: "Looking at some outputs from DESeq"
+output: html_document
+---
+  
+```{r}
+library(DESeq)
+library(multiseq)
+
+#set path
+path = "D:/Grad School/GitHub/multiseq_simulation"
+
+#load utilities
+source(file.path(path, "src/utils.R"))
+source(file.path(path, "src/agg_counts.R"))
+
+#read in list of regions
+list.loci.sheet = "src/list_loci_sim_encode_all_11"
+list.loci = read.table(file.path(path, list.loci.sheet))
+
+#set parameters
+win.size=list.loci[1,3]-list.loci[1,2]
+N=dim(list.loci)[1]
+
+#read in data
+data.null.sim=NULL
+data.alt.sim=NULL
+
+for(i in 1:N){
+  load(file.path(path,"data",paste(list.loci[i,1],list.loci[i,2]+1,list.loci[i,3],sep="."),"sim_res.Robj"))
+  sim.data=t(agg.counts(data.null,win.size))
+  data.null.sim=rbind(data.null.sim,sim.data)
+  sim.data=t(agg.counts(data.alt,win.size))
+  data.alt.sim=rbind(data.alt.sim,sim.data)
+}
+
+
+#run DESeq
+data.sim=rbind(data.null.sim,data.alt.sim)
+
+sim.g=factor(g,labels=c("A","B"))
+sim.y=newCountDataSet(data.sim,sim.g)
+sim.y=estimateSizeFactors(sim.y)
+size.factor=read.depth.null/(sum(unique(read.depth.null))/length(unique(read.depth.null)))
+sim.y@phenoData@data$sizeFactor=size.factor
+sim.y=estimateDispersions(sim.y,fitType="local")
+res=nbinomTest(sim.y,"A","B")
+```
+
+
+```{r}
+pval.sep = 0
+for(i in 1:(2*N)){
+  fit = glm(data.sim[i, ] ~ g, family = "poisson")
+  pval.sep[i] = summary(fit)$coef[2, 4]
+}
+
+par(mfrow = c(2, 1))
+plot(pval.sep, ylab = "p-value", main = "Based on data (separate for each region)")
+abline(v = 118, lty = 2)
+plot(res$pval, ylab = "p-value", main = "Based on DESeq")
+abline(v = 118, lty = 2)
+```
+
+They tend to agree...
