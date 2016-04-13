@@ -1,0 +1,138 @@
+---
+title: "Looking at some outputs from voom+limma"
+output: html_document
+---
+  
+```{r}
+library(edgeR)
+library(limma)
+library(multiseq)
+library(pROC)
+
+#set path
+path = "D:/Grad School/GitHub/multiseq_simulation"
+
+#load utilities
+source(file.path(path, "src/utils.R"))
+source(file.path(path, "src/agg_counts.R"))
+
+#read in list of regions
+list.loci.sheet = "src/list_loci_sim_encode_all_11"
+list.loci = read.table(file.path(path, list.loci.sheet))
+
+#set parameters
+win.size=list.loci[1,3]-list.loci[1,2]
+N=dim(list.loci)[1]
+
+#read in data
+data.null.sim=NULL
+data.alt.sim=NULL
+
+for(i in 1:N){
+  load(file.path(path,"data",paste(list.loci[i,1],list.loci[i,2]+1,list.loci[i,3],sep="."),"sim_res.Robj"))
+  sim.data=t(agg.counts(data.null,win.size))
+  data.null.sim=rbind(data.null.sim,sim.data)
+  sim.data=t(agg.counts(data.alt,win.size))
+  data.alt.sim=rbind(data.alt.sim,sim.data)
+}
+
+
+#run limma
+data.sim=rbind(data.null.sim,data.alt.sim)
+
+sim.g=factor(g,labels=c("A","B"))
+dgecounts = calcNormFactors(DGEList(counts=data.sim,group=sim.g))
+design = model.matrix(~sim.g)
+v = voom(dgecounts,design,plot=FALSE)
+res = lmFit(v)
+res = eBayes(res)
+```
+
+
+```{r}
+#try running poisson glm for each region separately
+pval.sep = 0
+for(i in 1:(2*N)){
+  fit = glm(data.sim[i, ] ~ g, family = "poisson")
+  pval.sep[i] = summary(fit)$coef[2, 4]
+}
+
+par(mfrow = c(2, 1))
+plot(pval.sep, ylab = "p-value", main = "Based on data (separate for each region)")
+abline(v = 118, lty = 2)
+plot(res$p.value[,2], ylab = "p-value", main = "Based on voom+limma")
+abline(v = 118, lty = 2)
+```
+
+
+
+
+```{r}
+roc.res.sep = roc(controls = pval.sep[1:N], cases = pval.sep[(N+1):(2*N)])
+roc.res.vl = roc(controls = res$p.value[,2][1:N], cases = res$p.value[,2][(N+1):(2*N)])
+
+plot(roc.res.sep, main = "ROC curves")
+lines(roc.res.vl, col = 2)
+legend("bottomright", legend = c("separate", "voom+limma"), lty = c(1, 1), col = 1:2)
+```
+
+
+We then look at the case when there are many more null simulations than alternatives (10:1)
+
+```{r}
+N=dim(list.loci)[1]
+
+#read in data
+data.null.sim=NULL
+data.alt.sim=NULL
+
+for(i in 1:N){
+  load(file.path(path,"data",paste(list.loci[i,1],list.loci[i,2]+1,list.loci[i,3],sep="."),"sim_res_many_null.Robj"))
+  for(k in 1:10){
+    sim.data=t(agg.counts(data.null[[k]],win.size))
+    data.null.sim=rbind(data.null.sim,sim.data)
+  }
+  sim.data=t(agg.counts(data.alt,win.size))
+  data.alt.sim=rbind(data.alt.sim,sim.data)
+}
+
+
+#run DESeq
+data.sim=rbind(data.null.sim,data.alt.sim)
+
+sim.g=factor(g,labels=c("A","B"))
+dgecounts = calcNormFactors(DGEList(counts=data.sim,group=sim.g))
+design = model.matrix(~sim.g)
+v = voom(dgecounts,design,plot=FALSE)
+res = lmFit(v)
+res = eBayes(res)
+
+```
+
+
+```{r}
+N = dim(data.sim)[1]
+
+#look at p-values
+pval.sep = 0
+for(i in 1:N){
+  fit = glm(data.sim[i, ] ~ g, family = "poisson")
+  pval.sep[i] = summary(fit)$coef[2, 4]
+}
+
+par(mfrow = c(2, 1))
+plot(pval.sep[1001:length(pval.sep)], ylab = "p-value", main = "Based on data (separate for each region)")
+abline(v = 117*10-1000, lty = 2)
+plot(res$p.value[,2][1001:length(pval.sep)], ylab = "p-value", main = "Based on voom+limma")
+abline(v = 117*10-1000, lty = 2)
+```
+
+
+```{r}
+roc.res.sep = roc(controls = pval.sep[1:dim(data.null.sim)[1]], cases = pval.sep[(dim(data.null.sim)[1]+1):N])
+roc.res.vl = roc(controls = res$p.value[,2][1:dim(data.null.sim)[1]], cases = res$p.value[,2][(dim(data.null.sim)[1]+1):N])
+
+plot(roc.res.sep, main = "ROC curves")
+lines(roc.res.vl, col = 2)
+legend("bottomright", legend = c("separate", "voom+limma"), lty = c(1, 1), col = 1:2)
+```
