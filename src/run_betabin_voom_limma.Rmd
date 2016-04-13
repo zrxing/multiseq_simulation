@@ -41,9 +41,9 @@ for(i in 1:N){
 data.sim=rbind(data.null.sim,data.alt.sim)
 
 sim.g=factor(g,labels=c("A","B"))
-dgecounts = calcNormFactors(DGEList(counts=data.sim,group=sim.g))
+#dgecounts = calcNormFactors(DGEList(counts=data.sim,group=sim.g))
 design = model.matrix(~sim.g)
-v = voom(dgecounts,design,plot=FALSE)
+v = voom(data.sim,design,read.depth.null,plot=FALSE)
 res = lmFit(v)
 res = eBayes(res)
 ```
@@ -101,9 +101,9 @@ for(i in 1:N){
 data.sim=rbind(data.null.sim,data.alt.sim)
 
 sim.g=factor(g,labels=c("A","B"))
-dgecounts = calcNormFactors(DGEList(counts=data.sim,group=sim.g))
+#dgecounts = calcNormFactors(DGEList(counts=data.sim,group=sim.g))
 design = model.matrix(~sim.g)
-v = voom(dgecounts,design,plot=FALSE)
+v = voom(data.sim,design,read.depth.null,plot=FALSE)
 res = lmFit(v)
 res = eBayes(res)
 
